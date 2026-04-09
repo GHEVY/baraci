@@ -17,6 +17,7 @@ const hintBtn     = document.getElementById('hint-btn');
 const hintPopup   = document.getElementById('hint-popup');
 const hintText    = document.getElementById('hint-text');
 const hintClose   = document.getElementById('hint-close');
+const errorNotif  = document.getElementById('error-notification');
 
 function lerpColor(a, b, t) {
   return `rgb(${Math.round(a[0]+(b[0]-a[0])*t)},${Math.round(a[1]+(b[1]-a[1])*t)},${Math.round(a[2]+(b[2]-a[2])*t)})`;
@@ -179,23 +180,30 @@ async function processWord(rawWord) {
   const word = rawWord.trim().toLowerCase();
   if (!word) return;
 
+  wordInput.disabled = true;
+  closeHintPopup();
+  errorNotif.style.display = 'none';
+  resultCard.classList.remove('visible');
+
   if (!isArmenianWord(word)) {
-    resultCard.classList.add('visible');
-    resultWord.textContent = word;
-    resultScore.textContent = 'Խնդրում ենք գրել հայերենով';
-    resultScore.style.color = 'red';
-    const badge = document.getElementById('result-source');
-    if (badge) badge.textContent = '❌ Սխալ';
-    resultCard.style.animation = 'none';
-    void resultCard.offsetWidth;
-    resultCard.style.animation = '';
+    errorNotif.style.display = 'block';
+    errorNotif.innerHTML = '<strong style="color:#FF6B6B;">🚠 Սխալ</strong> Գրեք միայն հայերեն';
+    wordInput.disabled = false;
+    wordInput.focus();
     return;
   }
 
-  wordInput.disabled = true;
-  closeHintPopup();
+  const result = await getScore(word);
 
-  const { score: pct, source } = await getScore(word);
+  if (result.notFound) {
+    errorNotif.style.display = 'block';
+    errorNotif.innerHTML = '<strong style="color:#FFC107;">⚠️ Չգտնված</strong> Բառը բառարանում չի հայտնաբերվել';
+    wordInput.disabled = false;
+    wordInput.focus();
+    return;
+  }
+
+  const { score: pct, source } = result;
 
   const existingIdx = history.findIndex(h => h.word === word);
   if (existingIdx !== -1) {

@@ -60,14 +60,18 @@ async function getScore(word) {
       const data = await _fetchWithTimeout(url);
       if (data && typeof data.score === 'number') {
         if (_wordDb) _wordDb[w] = data.score;
-        return { score: data.score, source: data.found ? 'api' : 'random' };
+        if (data.found) {
+          return { score: data.score, source: 'api', found: true };
+        } else {
+          return { notFound: true, source: 'notfound' };
+        }
       }
     } catch (err) {
       console.warn('[API] /api/word lookup failed:', err.message);
     }
   }
 
-  return { score: _pseudoRandom(w), source: 'random' };
+  return { notFound: true, source: 'notfound' };
 }
 
 async function _fetchWithTimeout(url) {
