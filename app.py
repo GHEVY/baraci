@@ -46,9 +46,12 @@ def cosine_similarity(v1, v2):
         return 0
     return np.dot(v1, v2) / (norm1 * norm2)
 
-@app.route('/')
-def home():
-    return f"Jermabar API-ն աշխատում է։ Բառը ընտրված է։"
+@app.route('/get_initial_word', methods=['GET'])
+def get_initial_word():
+    # Սա կվերադարձնի գաղտնի բառը սկզբում ստուգելու համար
+    return jsonify({
+        "word": secret_word
+    })
 
 @app.route('/guess', methods=['POST'])
 def guess():
