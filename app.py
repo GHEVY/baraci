@@ -47,6 +47,10 @@ def get_embedding(text):
         print(f"Local error: {e}")
         return "loading"
 
+@app.route('/get_initial_word', methods=['GET'])
+def get_initial_word():
+    return jsonify({"word": "խնձոր"})
+    
 # 4. Հիմնական Route-ը խաղի համար
 @app.route('/guess', methods=['POST'])
 def guess():
