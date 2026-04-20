@@ -27,25 +27,24 @@ allowed_words = load_dictionary()
 # 3. Ֆունկցիա AI-ից վեկտոր ստանալու համար
 def get_embedding(text):
     try:
-        response = requests.post(API_URL, headers=HEADERS, json={"inputs": text})
+        response = requests.post(API_URL, headers=HEADERS, json={"inputs": text}, timeout=10)
         
-        # Եթե API-ն սխալ է վերադարձրել (օրինակ 401 կամ 404)
+        # Եթե Hugging Face-ը սխալ է տալիս
         if response.status_code != 200:
-            print(f"API Error: {response.status_code} - {response.text}")
+            print(f"HF Error: {response.status_code} - {response.text}")
             return "loading"
 
         result = response.json()
         
-        if isinstance(result, dict) and "error" in result:
-            return "loading"
+        # Metric-AI-ն սովորաբար տալիս է [[0.1, 0.2, ...]]
+        if isinstance(result, list):
+            # Եթե լիստի մեջ լիստ է, վերցնում ենք առաջինը
+            data = np.array(result)
+            return data[0] if data.ndim > 1 else data
             
-        embedding = np.array(result)
-        if embedding.ndim > 1:
-            embedding = embedding[0]
-        return embedding
-        
+        return "loading"
     except Exception as e:
-        print(f"Exception in get_embedding: {e}")
+        print(f"Local error: {e}")
         return "loading"
 
 # 4. Հիմնական Route-ը խաղի համար
