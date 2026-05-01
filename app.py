@@ -12,7 +12,8 @@ CORS(app)
 
 # Կարգավորումներ
 HF_TOKEN = os.environ.get("HF_TOKEN")
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/pipeline/feature-extraction"
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-base/pipeline/feature-extraction"
+
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 # Բառարանի բեռնում
