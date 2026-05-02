@@ -10,12 +10,12 @@ from functools import lru_cache
 app = Flask(__name__)
 CORS(app)
 
-# Կարգավորումներ
+
 HF_TOKEN = os.environ.get("HF_TOKEN")
 HF_API_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/LaBSE/pipeline/feature-extraction"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-# Բառարանի բեռնում
+
 VALID_WORDS = set()
 VALID_WORDS_LIST = []
 try:
@@ -28,7 +28,7 @@ try:
 except Exception as e:
     print(f"Error loading dictionary: {e}")
 
-# AI Վեկտորի տրամաբանություն
+
 @lru_cache(maxsize=1000)
 def get_vector(word):
     max_retries = 3
@@ -36,14 +36,14 @@ def get_vector(word):
     for attempt in range(max_retries):
         try:
             if not HF_TOKEN or HF_TOKEN == "None":
-                return None, "HF_TOKEN-ը բացակայում է: Ավելացրեք այն Render-ի Environment փոփոխականներում:"
+                return None, "HF_TOKEN-ը բացակայում է:"
 
             response = requests.post(HF_API_URL, headers=headers, json={"inputs": [word]})
             if response.status_code == 200:
                 vectors = response.json()
                 return np.array(vectors[0]), None
             
-            # Եթե մոդելը քնած է (503 Service Unavailable), սպասում ենք և նորից փորձում
+
             if response.status_code == 503:
                 error_data = response.json()
                 wait_time = error_data.get("estimated_time", 20.0)
@@ -72,7 +72,7 @@ def cosine_similarity(v1, v2):
     if n1 == 0 or n2 == 0: return 0
     return np.dot(v1, v2) / (n1 * n2)
 
-# Երթուղիներ (Routes)
+
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
     if not VALID_WORDS_LIST:
@@ -110,8 +110,17 @@ def guess():
     v_secret = np.array(secret_vector_list)
     score = cosine_similarity(v_user, v_secret)
     
-    # Փոխակերպում ենք 0-100 միջակայքի
-    final_score = max(0, min(100, round(float(score) * 100, 2)))
+    raw_score = float(score)
+
+    threshold = 0.25
+    
+    if raw_score < threshold:
+        final_score = 0
+    else:
+
+        final_score = (raw_score - threshold) / (1 - threshold) * 100
+
+    final_score = max(0, min(100, round(final_score, 1)))
 
     return jsonify({
         "word": user_word,
