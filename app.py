@@ -32,41 +32,28 @@ except Exception as e:
 @lru_cache(maxsize=1000)
 def get_vector(word):
     max_retries = 3
-    last_error = "Unknown"
     for attempt in range(max_retries):
         try:
             if not HF_TOKEN or HF_TOKEN == "None":
                 return None, "HF_TOKEN-ը բացակայում է:"
 
             response = requests.post(HF_API_URL, headers=headers, json={"inputs": [word]})
+            
             if response.status_code == 200:
                 vectors = response.json()
-                return np.array(vectors[0]), None
+                # Возвращаем обычный список, а не np.array
+                return vectors[0], None 
             
-
             if response.status_code == 503:
-                error_data = response.json()
-                wait_time = error_data.get("estimated_time", 20.0)
-                print(f"Model is loading. Waiting {wait_time}s (Attempt {attempt + 1}/{max_retries})...")
-                time.sleep(min(wait_time, 25))
-                last_error = "503 Model Loading"
+                time.sleep(5) # Ждем немного и пробуем снова
                 continue
                 
-            try:
-                err_json = response.json()
-                err_text = err_json.get("error", response.text)
-            except:
-                err_text = response.text
-                
-            print(f"HF Error: {response.status_code} - {err_text}")
-            last_error = f"HF Error {response.status_code}: {err_text}"
-            return None, last_error
+            return None, f"HF Error {response.status_code}"
+            
         except Exception as e:
-            print(f"Request error: {e}")
-            last_error = f"Exception: {str(e)}"
-            return None, last_error
-    return None, last_error
-
+            continue
+            
+    return None, "Failed after retries"
 def cosine_similarity(v1, v2):
     if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
         return 0.0
@@ -113,29 +100,23 @@ def guess():
     if user_word not in VALID_WORDS:
         return jsonify({"error": "Բառը չկա բազայում"}), 404
 
-    v_user, err_msg = get_vector(user_word)
-    if v_user is None:
+    # 1. Получаем вектор как список
+    v_user_list, err_msg = get_vector(user_word)
+    if v_user_list is None:
         return jsonify({"error": f"AI-ն անհասանելի է: {err_msg}"}), 500
 
+    # 2. Превращаем в numpy-массивы только здесь
+    v_user = np.array(v_user_list)
     v_secret = np.array(secret_vector_list)
+    
+    # 3. Считаем
     score = cosine_similarity(v_user, v_secret)
     
-    raw_score = float(score)
-
+    # ... дальше твоя логика расчета final_score ...
     threshold = 0.25
-    
-    if raw_score < threshold:
-        final_score = 0
-    else:
+    final_score = max(0, min(100, round((max(0, score) - threshold) / (1 - threshold) * 100, 1))) if score > threshold else 0
 
-        final_score = (raw_score - threshold) / (1 - threshold) * 100
-
-    final_score = max(0, min(100, round(final_score, 1)))
-
-    return jsonify({
-        "word": user_word,
-        "score": final_score
-    })
+    return jsonify({"word": user_word, "score": final_score})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
