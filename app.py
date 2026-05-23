@@ -41,12 +41,10 @@ def get_vector(word):
             
             if response.status_code == 200:
                 vectors = response.json()
-                # Возвращаем обычный список, а не np.array
                 return vectors[0], None 
             
             if response.status_code == 503:
-                time.sleep(5) # Ждем немного и пробуем снова
-                continue
+                return None, "Model is loading"
                 
             return None, f"HF Error {response.status_code}"
             
