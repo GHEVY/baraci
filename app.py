@@ -68,8 +68,18 @@ def get_vector(word):
     return None, last_error
 
 def cosine_similarity(v1, v2):
-    n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
-    if n1 == 0 or n2 == 0: return 0
+    if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
+        return 0.0
+
+    v1 = np.array(v1)
+    v2 = np.array(v2)
+    
+    n1 = np.linalg.norm(v1)
+    n2 = np.linalg.norm(v2)
+
+    if n1 == 0 or n2 == 0:
+        return 0.0
+        
     return np.dot(v1, v2) / (n1 * n2)
 
 
