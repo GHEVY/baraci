@@ -13,7 +13,6 @@ CORS(app)
 
 HF_TOKEN = os.environ.get("HF_TOKEN")
 HF_API_URL = "https://router.huggingface.co/hf-inference/models/FacebookAI/xlm-roberta-base/pipeline/feature-extraction"
-//HF_API_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/LaBSE/pipeline/feature-extraction"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 
