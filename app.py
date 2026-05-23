@@ -83,7 +83,7 @@ def get_initial_word():
 
     return jsonify({
         "word": random_word,
-        "vector": vector.tolist()  # Վեկտորը ուղարկում ենք բրաուզերին
+        "vector": vector
     })
 
 @app.route('/guess', methods=['POST'])
