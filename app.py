@@ -55,13 +55,16 @@ def get_vector(word):
 def cosine_similarity(v1, v2):
     if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
         return 0.0
-
     v1 = np.array(v1)
     v2 = np.array(v2)
     
+    if len(v1.shape) == 2:
+        v1 = np.mean(v1, axis=0)
+    if len(v2.shape) == 2:
+        v2 = np.mean(v2, axis=0)
+    
     n1 = np.linalg.norm(v1)
     n2 = np.linalg.norm(v2)
-
     if n1 == 0 or n2 == 0:
         return 0.0
         
