@@ -29,12 +29,27 @@ except Exception as e:
 def get_vector(word):
     try:
 
-        vector = client.feature_extraction(word)
+        result = client.feature_extraction(word)
+        
 
-        return vector[0].tolist() if hasattr(vector, 'tolist') else vector[0], None
+        if hasattr(result, 'tolist'):
+            vec = result.tolist()
+        else:
+            vec = result
+            
+
+        if isinstance(vec, list) and len(vec) > 0 and isinstance(vec[0], list):
+            vec = vec[0]
+            
+
+        if not isinstance(vec, list) or len(vec) < 50:
+            print(f"DEBUG: Bad vector received for '{word}': {vec}")
+            return None, "Model returned invalid vector size"
+            
+        return vec, None
     except Exception as e:
+        print(f"DEBUG: Exception in get_vector: {e}")
         return None, str(e)
-
 def cosine_similarity(v1, v2):
     arr1, arr2 = np.array(v1).flatten(), np.array(v2).flatten()
     norm1, norm2 = np.linalg.norm(arr1), np.linalg.norm(arr2)
