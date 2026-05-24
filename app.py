@@ -11,7 +11,7 @@ CORS(app)
 
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-small"
+HF_API_URL = "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/intfloat/multilingual-e5-small"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
