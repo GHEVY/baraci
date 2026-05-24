@@ -11,7 +11,7 @@ CORS(app)
 
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-HF_API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,22 +33,17 @@ except Exception as e:
 def get_vector(word):
     try:
         response = requests.post(HF_API_URL, headers=headers, json={"inputs": word}, timeout=30)
-
         if response.status_code != 200:
-            return None, f"Error {response.status_code}"
-
+            # ТЕПЕРЬ МЫ УВИДИМ, НА ЧТО ИМЕННО ЖАЛУЕТСЯ HUGGING FACE
+            return None, f"Error {response.status_code}: {response.text[:200]}"
         data = response.json()
-
         if isinstance(data, list):
             if len(data) > 0 and isinstance(data[0], list):
                 return data[0], None
             return data, None
-
         return None, "Invalid data format"
-
     except Exception as e:
         print(f"Error: {e}")
-        # Теперь на фронтенд придёт точный текст ошибки!
         return None, f"Exception: {str(e)}"
 
 def cosine_similarity(v1, v2):
