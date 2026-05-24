@@ -5,21 +5,22 @@ import requests
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from functools import lru_cache
 
 app = Flask(__name__)
 CORS(app)
 
 
-HF_TOKEN = os.environ.get("HF_TOKEN")
+HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
 HF_API_URL = "https://router.huggingface.co/hf-inference/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DICT_PATH = os.path.join(BASE_DIR, "valid_words.txt")
 
 VALID_WORDS = set()
 VALID_WORDS_LIST = []
 try:
-    with open("valid_words.txt", "r", encoding="utf-8") as f:
+    with open(DICT_PATH, "r", encoding="utf-8") as f:
         for line in f:
             word = line.strip().lower()
             if word: VALID_WORDS.add(word)
@@ -31,35 +32,32 @@ except Exception as e:
 
 def get_vector(word):
     try:
-        response = requests.post(HF_API_URL, headers=headers, json={"inputs": [word]})
-        
-        # Если статус не 200, выходим сразу, не роняя сервер
+        response = requests.post(HF_API_URL, headers=headers, json={"inputs": word}, timeout=30)
+
         if response.status_code != 200:
             return None, f"Error {response.status_code}"
-            
+
         data = response.json()
-        
-        # Гибкая обработка: достаем вектор, если это список или список списков
+
         if isinstance(data, list):
-            # Если первый элемент — это список (как [[0.1, 0.2...]]), берем его
             if len(data) > 0 and isinstance(data[0], list):
                 return data[0], None
-            # Если это просто список чисел [0.1, 0.2...]
             return data, None
-            
+
         return None, "Invalid data format"
-        
+
     except Exception as e:
         print(f"Error: {e}")
         return None, "Exception"
-    
+
+
 def cosine_similarity(v1, v2):
     if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
         return 0.0
 
     arr1 = np.array(v1).flatten()
     arr2 = np.array(v2).flatten()
-    
+
     n1 = np.linalg.norm(arr1)
     n2 = np.linalg.norm(arr2)
 
@@ -72,18 +70,16 @@ def cosine_similarity(v1, v2):
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
     if not VALID_WORDS_LIST:
-        return jsonify({"error": "Բառարանը դատարկ է"}), 500
-    
+        return jsonify({"error": "Dictionary is empty"}), 500
+
     random_word = random.choice(VALID_WORDS_LIST)
     vector, err_msg = get_vector(random_word)
-    
-    if vector is None:
-        return jsonify({"error": f"AI-ն անհասանելի է: {err_msg}"}), 500
 
-    return jsonify({
-        "word": random_word,
-        "vector": vector
-    })
+    if vector is None:
+        return jsonify({"error": f"AI unavailable: {err_msg}"}), 500
+
+    return jsonify({"word": random_word, "vector": vector})
+
 
 @app.route('/guess', methods=['POST'])
 def guess():
@@ -94,28 +90,25 @@ def guess():
     secret_vector_list = data.get('secret_vector')
 
     if not user_word or secret_vector_list is None:
-        return jsonify({"error": "Տվյալները թերի են"}), 400
-    
-    if user_word not in VALID_WORDS:
-        return jsonify({"error": "Բառը չկա բազայում"}), 404
+        return jsonify({"error": "Incomplete data"}), 400
 
-    # 1. Получаем вектор как список
+    if user_word not in VALID_WORDS:
+        return jsonify({"error": "Word not found"}), 404
+
     v_user_list, err_msg = get_vector(user_word)
     if v_user_list is None:
-        return jsonify({"error": f"AI-ն անհասանելի է: {err_msg}"}), 500
+        return jsonify({"error": f"AI unavailable: {err_msg}"}), 500
 
-    # 2. Превращаем в numpy-массивы только здесь
     v_user = np.array(v_user_list)
     v_secret = np.array(secret_vector_list)
-    
-    # 3. Считаем
+
     score = cosine_similarity(v_user, v_secret)
-    
-    # ... дальше твоя логика расчета final_score ...
+
     threshold = 0.25
     final_score = max(0, min(100, round((max(0, score) - threshold) / (1 - threshold) * 100, 1))) if score > threshold else 0
 
     return jsonify({"word": user_word, "score": final_score})
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
