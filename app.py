@@ -31,29 +31,26 @@ except Exception as e:
 
 @lru_cache(maxsize=1000)
 def get_vector(word):
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            if not HF_TOKEN or HF_TOKEN == "None":
-                return None, "HF_TOKEN-ը բացակայում է:"
-
-            response = requests.post(HF_API_URL, headers=headers, json={"inputs": [word]})
-            
-            if response.status_code == 200:
-                vectors = response.json()
-                return vectors[0], None 
-            
-            if response.status_code == 503:
-                # Ждем 3 секунды и цикл continue попробует еще раз
-                time.sleep(3)
-                continue
-                
-            return None, f"HF Error {response.status_code}"
-            
-        except Exception as e:
-            continue
-            
-    return None, "AI-ն արթնանում է: Խնդրում ենք թարմացնել էջը 10 վայրկյանից:"
+    try:
+        # Убираем все лишнее, просто делаем запрос
+        response = requests.post(HF_API_URL, headers=headers, json={"inputs": word})
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Пытаемся достать вектор из разных вариантов структуры API
+            if isinstance(result, list):
+                if len(result) > 0:
+                    # Если вернулся список списков, берем первый, иначе сам список
+                    vector = result[0] if isinstance(result[0], list) else result
+                    return vector, None
+        
+        # Если API ответило не 200 или пришел пустой список
+        print(f"DEBUG: API returned {response.status_code}: {response.text}")
+        return None, "Error"
+        
+    except Exception as e:
+        print(f"DEBUG: Exception: {e}")
+        return None, "Exception"
     
 def cosine_similarity(v1, v2):
     if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
