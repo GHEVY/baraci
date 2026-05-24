@@ -29,27 +29,28 @@ except Exception as e:
     print(f"Error loading dictionary: {e}")
 
 
-@lru_cache(maxsize=1000)
 def get_vector(word):
     try:
-        # Убираем все лишнее, просто делаем запрос
-        response = requests.post(HF_API_URL, headers=headers, json={"inputs": word})
+        response = requests.post(HF_API_URL, headers=headers, json={"inputs": [word]})
         
-        if response.status_code == 200:
-            result = response.json()
-            # Пытаемся достать вектор из разных вариантов структуры API
-            if isinstance(result, list):
-                if len(result) > 0:
-                    # Если вернулся список списков, берем первый, иначе сам список
-                    vector = result[0] if isinstance(result[0], list) else result
-                    return vector, None
+        # Если статус не 200, выходим сразу, не роняя сервер
+        if response.status_code != 200:
+            return None, f"Error {response.status_code}"
+            
+        data = response.json()
         
-        # Если API ответило не 200 или пришел пустой список
-        print(f"DEBUG: API returned {response.status_code}: {response.text}")
-        return None, "Error"
+        # Гибкая обработка: достаем вектор, если это список или список списков
+        if isinstance(data, list):
+            # Если первый элемент — это список (как [[0.1, 0.2...]]), берем его
+            if len(data) > 0 and isinstance(data[0], list):
+                return data[0], None
+            # Если это просто список чисел [0.1, 0.2...]
+            return data, None
+            
+        return None, "Invalid data format"
         
     except Exception as e:
-        print(f"DEBUG: Exception: {e}")
+        print(f"Error: {e}")
         return None, "Exception"
     
 def cosine_similarity(v1, v2):
