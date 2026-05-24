@@ -1,110 +1,69 @@
 import os
-import time
 import random
-import requests
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from huggingface_hub import InferenceClient
 
 app = Flask(__name__)
 CORS(app)
 
-
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-HF_API_URL = "https://router.huggingface.co/hf-inference"
-headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DICT_PATH = os.path.join(BASE_DIR, "valid_words.txt")
-
 VALID_WORDS = set()
 VALID_WORDS_LIST = []
+
 try:
     with open(DICT_PATH, "r", encoding="utf-8") as f:
-        for line in f:
-            word = line.strip().lower()
-            if word: VALID_WORDS.add(word)
+        VALID_WORDS = {line.strip().lower() for line in f if line.strip()}
     VALID_WORDS_LIST = list(VALID_WORDS)
     print(f"Loaded {len(VALID_WORDS)} words.")
 except Exception as e:
     print(f"Error loading dictionary: {e}")
 
-
 def get_vector(word):
     try:
-        response = requests.post(HF_API_URL, headers=headers, json={"inputs": word}, timeout=30)
-        if response.status_code != 200:
-            # ТЕПЕРЬ МЫ УВИДИМ, НА ЧТО ИМЕННО ЖАЛУЕТСЯ HUGGING FACE
-            return None, f"Error {response.status_code}: {response.text[:200]}"
-        data = response.json()
-        if isinstance(data, list):
-            if len(data) > 0 and isinstance(data[0], list):
-                return data[0], None
-            return data, None
-        return None, "Invalid data format"
+
+        vector = client.feature_extraction(word)
+
+        return vector[0].tolist() if hasattr(vector, 'tolist') else vector[0], None
     except Exception as e:
-        print(f"Error: {e}")
-        return None, f"Exception: {str(e)}"
+        return None, str(e)
 
 def cosine_similarity(v1, v2):
-    if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
-        return 0.0
-
-    arr1 = np.array(v1).flatten()
-    arr2 = np.array(v2).flatten()
-
-    n1 = np.linalg.norm(arr1)
-    n2 = np.linalg.norm(arr2)
-
-    if n1 == 0 or n2 == 0:
-        return 0.0
-
-    return float(np.dot(arr1, arr2) / (n1 * n2))
-
+    arr1, arr2 = np.array(v1).flatten(), np.array(v2).flatten()
+    norm1, norm2 = np.linalg.norm(arr1), np.linalg.norm(arr2)
+    if norm1 == 0 or norm2 == 0: return 0.0
+    return float(np.dot(arr1, arr2) / (norm1 * norm2))
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
-    if not VALID_WORDS_LIST:
-        return jsonify({"error": "Dictionary is empty"}), 500
-
-    random_word = random.choice(VALID_WORDS_LIST)
-    vector, err_msg = get_vector(random_word)
-
-    if vector is None:
-        return jsonify({"error": f"AI unavailable: {err_msg}"}), 500
-
-    return jsonify({"word": random_word, "vector": vector})
-
+    if not VALID_WORDS_LIST: return jsonify({"error": "Dict empty"}), 500
+    word = random.choice(VALID_WORDS_LIST)
+    vec, err = get_vector(word)
+    if vec is None: return jsonify({"error": f"AI error: {err}"}), 500
+    return jsonify({"word": word, "vector": vec})
 
 @app.route('/guess', methods=['POST'])
 def guess():
-    data = request.get_json(silent=True)
-    if not data: return jsonify({"error": "No data"}), 400
-
+    data = request.get_json()
     user_word = data.get('word', '').lower().strip()
-    secret_vector_list = data.get('secret_vector')
-
-    if not user_word or secret_vector_list is None:
-        return jsonify({"error": "Incomplete data"}), 400
-
-    if user_word not in VALID_WORDS:
-        return jsonify({"error": "Word not found"}), 404
-
-    v_user_list, err_msg = get_vector(user_word)
-    if v_user_list is None:
-        return jsonify({"error": f"AI unavailable: {err_msg}"}), 500
-
-    v_user = np.array(v_user_list)
-    v_secret = np.array(secret_vector_list)
-
-    score = cosine_similarity(v_user, v_secret)
-
+    secret_vec = data.get('secret_vector')
+    
+    if user_word not in VALID_WORDS: return jsonify({"error": "Not in dict"}), 404
+    
+    user_vec, err = get_vector(user_word)
+    if user_vec is None: return jsonify({"error": f"AI error: {err}"}), 500
+    
+    score = cosine_similarity(user_vec, secret_vec)
     threshold = 0.25
-    final_score = max(0, min(100, round((max(0, score) - threshold) / (1 - threshold) * 100, 1))) if score > threshold else 0
-
-    return jsonify({"word": user_word, "score": final_score})
-
+    final = max(0, min(100, round((max(0, score) - threshold) / (1 - threshold) * 100, 1))) if score > threshold else 0
+    return jsonify({"score": final})
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
