@@ -48,8 +48,8 @@ def get_vector(word):
 
     except Exception as e:
         print(f"Error: {e}")
-        return None, "Exception"
-
+        # Теперь на фронтенд придёт точный текст ошибки!
+        return None, f"Exception: {str(e)}"
 
 def cosine_similarity(v1, v2):
     if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
