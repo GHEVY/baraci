@@ -44,7 +44,7 @@ def get_vector(word):
 
         if not isinstance(vec, list) or len(vec) < 50:
             print(f"DEBUG: Bad vector received for '{word}': {vec}")
-            return None, "Model returned invalid vector size"
+            return None, "AI-ի սխալ"
             
         return vec, None
     except Exception as e:
@@ -58,10 +58,10 @@ def cosine_similarity(v1, v2):
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
-    if not VALID_WORDS_LIST: return jsonify({"error": "Dict empty"}), 500
+    if not VALID_WORDS_LIST: return jsonify({"error": "Բառարանը դատարկ է"}), 500
     word = random.choice(VALID_WORDS_LIST)
     vec, err = get_vector(word)
-    if vec is None: return jsonify({"error": f"AI error: {err}"}), 500
+    if vec is None: return jsonify({"error": f"AI-ի սխալ"}), 500
     return jsonify({"word": word, "vector": vec})
 
 @app.route('/guess', methods=['POST'])
@@ -70,10 +70,10 @@ def guess():
     user_word = data.get('word', '').lower().strip()
     secret_vec = data.get('secret_vector')
     
-    if user_word not in VALID_WORDS: return jsonify({"error": "Not in dict"}), 404
+    if user_word not in VALID_WORDS: return jsonify({"error": "Բառը բառարանում չկա"}), 404
     
     user_vec, err = get_vector(user_word)
-    if user_vec is None: return jsonify({"error": f"AI error: {err}"}), 500
+    if user_vec is None: return jsonify({"error": f"AI-ի սխալ"}), 500
     
     score = cosine_similarity(user_vec, secret_vec)
     threshold = 0.25
