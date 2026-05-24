@@ -44,14 +44,17 @@ def get_vector(word):
                 return vectors[0], None 
             
             if response.status_code == 503:
-                return None, "Model is loading"
+                # Ждем 3 секунды и цикл continue попробует еще раз
+                time.sleep(3)
+                continue
                 
             return None, f"HF Error {response.status_code}"
             
         except Exception as e:
             continue
             
-    return None, "Failed after retries"
+    return None, "AI-ն արթնանում է: Խնդրում ենք թարմացնել էջը 10 վայրկյանից:"
+    
 def cosine_similarity(v1, v2):
     if v1 is None or v2 is None or len(v1) == 0 or len(v2) == 0:
         return 0.0
