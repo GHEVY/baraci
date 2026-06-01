@@ -25,25 +25,37 @@ try:
     print(f"Loaded {len(VALID_WORDS)} words.")
 except Exception as e:
     print(f"Error loading dictionary: {e}")
-
 def get_llm_score(target, guess):
     """
-    Отправляет запрос в LLM и получает числовую оценку близости 0-100.
+    Улучшенная функция с отладкой и надежным парсингом.
     """
     prompt = (
-        f"Analyze the semantic similarity between two Armenian words: '{target}' and '{guess}'. "
-        "Return ONLY an integer between 0 and 100 representing how close they are in meaning. "
-        "Do not write anything else, just the number."
+        f"Compare the Armenian words '{target}' and '{guess}'. "
+        "Return a number from 0 to 100 representing their semantic similarity. "
+        "Return ONLY the number, without any extra text or explanation."
     )
+    
     try:
-        response = client.text_generation(prompt, max_new_tokens=5, temperature=0.1)
-        # Вытаскиваем число из ответа (на случай, если модель добавит текст)
-        numbers = re.findall(r'\d+', response)
-        if numbers:
-            return int(numbers[0])
-        return 0
+        # Используем ретро-совместимый вызов text_generation
+        response = client.text_generation(prompt, max_new_tokens=10, temperature=0.1)
+        
+        # ЛОГИРУЕМ ОТВЕТ (смотри логи на Render)
+        print(f"DEBUG: LLM Response for '{target}' vs '{guess}': {response}")
+        
+        # Ищем число в ответе (даже если там есть лишние пробелы или точки)
+        # Ищем последовательность цифр
+        matches = re.findall(r'\d+', response)
+        
+        if matches:
+            score = int(matches[0])
+            # Гарантируем, что число от 0 до 100
+            return max(0, min(100, score))
+        else:
+            print(f"DEBUG: No numbers found in response!")
+            return 0
+            
     except Exception as e:
-        print(f"LLM Error: {e}")
+        print(f"DEBUG: LLM Exception: {e}")
         return 0
 
 @app.route('/get_initial_word', methods=['GET'])
