@@ -26,37 +26,26 @@ try:
 except Exception as e:
     print(f"Error loading dictionary: {e}")
 def get_llm_score(target, guess):
-    """
-    Улучшенная функция с отладкой и надежным парсингом.
-    """
     prompt = (
         f"Compare the Armenian words '{target}' and '{guess}'. "
         "Return a number from 0 to 100 representing their semantic similarity. "
-        "Return ONLY the number, without any extra text or explanation."
+        "Return ONLY the number."
     )
     
     try:
-        # Используем ретро-совместимый вызов text_generation
         response = client.text_generation(prompt, max_new_tokens=10, temperature=0.1)
+        print(f"DEBUG: LLM raw response -> '{response}'") # Это самое важное!
         
-        # ЛОГИРУЕМ ОТВЕТ (смотри логи на Render)
-        print(f"DEBUG: LLM Response for '{target}' vs '{guess}': {response}")
-        
-        # Ищем число в ответе (даже если там есть лишние пробелы или точки)
-        # Ищем последовательность цифр
         matches = re.findall(r'\d+', response)
-        
         if matches:
-            score = int(matches[0])
-            # Гарантируем, что число от 0 до 100
-            return max(0, min(100, score))
+            return int(matches[0])
         else:
-            print(f"DEBUG: No numbers found in response!")
-            return 0
+            print("DEBUG: No number found in response!")
+            return -1 # Возвращаем -1, если не нашли число
             
     except Exception as e:
-        print(f"DEBUG: LLM Exception: {e}")
-        return 0
+        print(f"DEBUG: CRITICAL ERROR -> {e}")
+        return -1 # Возвращаем -1, если ошибка API
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
