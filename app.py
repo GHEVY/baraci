@@ -61,22 +61,21 @@ def get_initial_word():
 
 @app.route('/guess', methods=['POST'])
 @app.route('/guess', methods=['POST'])
+@app.route('/guess', methods=['POST'])
 def guess_word():
-    # 1. Заставляем Flask прочитать тело как JSON, даже если заголовок кривой
     data = request.get_json(force=True, silent=True)
     
-    # 2. Логируем, что пришло (ищем это в логах Render)
-    print(f"DEBUG: Получено данных: {data}")
-    
     if data is None:
-        return jsonify({"error": "No JSON payload received"}), 400
+        return jsonify({"error": "No JSON payload"}), 400
         
-    target = data.get('target')
-    guess = data.get('guess')
+    # Теперь ищем ключи, которые реально прилетают из JS
+    target = data.get('secret_word') 
+    guess = data.get('word')
     
     if not target or not guess:
-        return jsonify({"error": f"Missing target or guess. Received: {data}"}), 400
+        return jsonify({"error": f"Missing keys. Received: {data}"}), 400
     
+    # Вызываем оценку
     score = get_llm_score(target, guess)
     return jsonify({"score": score})
 
