@@ -50,3 +50,27 @@ def get_llm_score(target, guess):
         print(f"!!! GEMINI API ERROR !!!: {e}")
         
     return 15 # Наш стандартный безопасный фолбэк
+
+
+@app.route('/get_initial_word', methods=['GET'])
+def get_initial_word():
+    # Список слов для начала игры (можно расширить)
+    words = ["սուրճ", "համակարգիչ", "գիրք", "արև", "լեռ", "ծով"]
+    import random
+    return jsonify({"word": random.choice(words)})
+
+@app.route('/guess', methods=['POST'])
+def guess_word():
+    data = request.json
+    target = data.get('target')
+    guess = data.get('guess')
+    
+    if not target or not guess:
+        return jsonify({"error": "Missing input data"}), 400
+    
+    # Вызываем функцию оценки через Gemini
+    score = get_llm_score(target, guess)
+    return jsonify({"score": score})
+
+if __name__ == '__main__':
+    app.run(debug=True)
