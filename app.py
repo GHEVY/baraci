@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+MODEL_ID = "BAAI/bge-m3"
 client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
 
 
