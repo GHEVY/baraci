@@ -29,23 +29,32 @@ def get_llm_score(target, guess):
     prompt = (
         f"Compare the Armenian words '{target}' and '{guess}'. "
         "Return a number from 0 to 100 representing their semantic similarity. "
-        "Return ONLY the number."
+        "Return ONLY the number, without any extra text."
     )
     
     try:
-        response = client.text_generation(prompt, max_new_tokens=10, temperature=0.1)
-        print(f"DEBUG: LLM raw response -> '{response}'") # Это самое важное!
+        # Используем .conversational вместо .text_generation
+        # Передаем промпт внутри списка сообщений
+        response = client.conversational(
+            messages=[{"role": "user", "content": prompt}]
+        )
         
-        matches = re.findall(r'\d+', response)
+        # У объекта response есть поле generated_text
+        content = response.generated_text if hasattr(response, 'generated_text') else str(response)
+        
+        print(f"DEBUG: LLM raw response -> '{content}'")
+        
+        matches = re.findall(r'\d+', content)
         if matches:
-            return int(matches[0])
+            score = int(matches[0])
+            return max(0, min(100, score))
         else:
             print("DEBUG: No number found in response!")
-            return -1 # Возвращаем -1, если не нашли число
+            return 0 # Или -1, если хочешь отлавливать ошибки
             
     except Exception as e:
         print(f"DEBUG: CRITICAL ERROR -> {e}")
-        return -1 # Возвращаем -1, если ошибка API
+        return 0
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
