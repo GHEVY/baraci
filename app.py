@@ -25,14 +25,22 @@ try:
     print(f"Loaded {len(VALID_WORDS)} words.")
 except Exception as e:
     print(f"Error loading dictionary: {e}")
+
 def get_llm_score(target, guess):
+    
     system_instruction = (
-        "You are an expert linguistic judge for the Armenian word game 'Baratsi'. "
-        "Evaluate the semantic similarity between 'Secret word' and 'Guess word' in Armenian on a scale from 0 to 100.\n"
-        "Rules:\n"
-        "1. Output EXACTLY one integer from 0 to 100. No text, no markdown, no punctuation.\n"
-        "2. Use the entire scale naturally and dynamically. Do not automatically round your scores to the nearest 5 or 10. "
-        "Be precise and granular (e.g., feel free to return 14, 23, 47, 61, 82 if that accurately reflects the semantic distance)."
+        "You are the core engine of 'Baratsi', an Armenian word association game. "
+        "Analyze how naturally a human mind connects the 'Guess word' to the 'Secret word' based on everyday life, Armenian culture, and typical context.\n"
+        "To provide a human-like score, you MUST think step-by-step using this EXACT format:\n"
+        "Reasoning: <one short sentence in English explaining the human or cultural connection between the two Armenian words>\n"
+        "Score: <a highly precise, non-rounded integer from 0 to 100>\n\n"
+        "Scoring Philosophy:\n"
+        "- 90-100: Absolute synonyms or direct grammatical forms.\n"
+        "- 70-89: Powerful everyday or cultural pairing (e.g., 'խորոված' /barbecue/ and 'մանղալ' /manghal/ should be ~87).\n"
+        "- 40-69: Broad thematic link or shared context (e.g., 'գիրք' /book/ and 'սուրճ' /coffee/ should be ~54).\n"
+        "- 10-39: Weak, highly abstract, or accidental connection.\n"
+        "- 0-9: Absolutely no semantic connection in real life (e.g., 'հիվանդ' and 'կիթառ' MUST get between 0 and 4).\n\n"
+        "CRITICAL: Be extremely organic. Do not round scores to multiples of 5 or 10. Use unique numbers like 13, 37, 46, 62, 79, 81."
     )
     
     user_content = f"Secret word: {target}\nGuess word: {guess}"
@@ -44,24 +52,26 @@ def get_llm_score(target, guess):
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content}
             ],
-            max_tokens=4,
-            # ПОВЫШАЕМ ТЕМПЕРАТУРУ: дает естественный разброс чисел,
-            # убирает зацикливание на круглых цифрах, но держит логику.
-            temperature=0.3 
+            max_tokens=45,    
+            temperature=0.4   
         )
         
         content = response.choices[0].message.content.strip()
-        print(f"DEBUG: LLM raw response -> '{content}'")
+        print(f"DEBUG: LLM Thought & Output:\n{content}")
         
-        matches = re.findall(r'\d+', content)
-        if matches:
-            score = int(matches[0])
+        match = re.search(r'Score:\s*(\d+)', content)
+        if match:
+            score = int(match.group(1))
             return max(0, min(100, score))
             
+        matches = re.findall(r'\d+', content)
+        if matches:
+            return max(0, min(100, int(matches[-1]))) # Берем последнее число из текста
+            
     except Exception as e:
-        print(f"WARNING: HF API Error ({e}). Using fallback score.")
+        print(f"WARNING: API Error ({e}). Fallback applied.")
         
-    return 15 # Дефолтный фолбэк на случай падения сети
+    return 15
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
