@@ -1,6 +1,6 @@
 import os
 import random
-import numpy as np
+import re
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from huggingface_hub import InferenceClient
@@ -8,10 +8,10 @@ from huggingface_hub import InferenceClient
 app = Flask(__name__)
 CORS(app)
 
+# Используем модель-инструктор для оценки близости слов
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-MODEL_ID = "BAAI/bge-m3"
+MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
-
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DICT_PATH = os.path.join(BASE_DIR, "valid_words.txt")
@@ -26,66 +26,48 @@ try:
 except Exception as e:
     print(f"Error loading dictionary: {e}")
 
-def get_vector(word):
+def get_llm_score(target, guess):
+    """
+    Отправляет запрос в LLM и получает числовую оценку близости 0-100.
+    """
+    prompt = (
+        f"Analyze the semantic similarity between two Armenian words: '{target}' and '{guess}'. "
+        "Return ONLY an integer between 0 and 100 representing how close they are in meaning. "
+        "Do not write anything else, just the number."
+    )
     try:
-
-        result = client.feature_extraction(word)
-        
-
-        if hasattr(result, 'tolist'):
-            vec = result.tolist()
-        else:
-            vec = result
-            
-
-        if isinstance(vec, list) and len(vec) > 0 and isinstance(vec[0], list):
-            vec = vec[0]
-            
-
-        if not isinstance(vec, list) or len(vec) < 50:
-            print(f"DEBUG: Bad vector received for '{word}': {vec}")
-            return None, "AI-ի սխալ"
-            
-        return vec, None
+        response = client.text_generation(prompt, max_new_tokens=5, temperature=0.1)
+        # Вытаскиваем число из ответа (на случай, если модель добавит текст)
+        numbers = re.findall(r'\d+', response)
+        if numbers:
+            return int(numbers[0])
+        return 0
     except Exception as e:
-        print(f"DEBUG: Exception in get_vector: {e}")
-        return None, str(e)
-def cosine_similarity(v1, v2):
-    arr1, arr2 = np.array(v1).flatten(), np.array(v2).flatten()
-    norm1, norm2 = np.linalg.norm(arr1), np.linalg.norm(arr2)
-    if norm1 == 0 or norm2 == 0: return 0.0
-    return float(np.dot(arr1, arr2) / (norm1 * norm2))
+        print(f"LLM Error: {e}")
+        return 0
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
-    if not VALID_WORDS_LIST: 
-        return jsonify({"error": "Բառարանը դատարկ է"}), 500
-    attempts = 0
-    while attempts < 100:
-        word = random.choice(VALID_WORDS_LIST)
-        attempts += 1
-        if len(word) > 8:
-            continue
-        vec, err = get_vector(word)
-        if vec is not None:
-            return jsonify({"word": word, "vector": vec})
-    return jsonify({"error": "Չհաջողվեց գտնել հարմար գաղտնի բառ"}), 500
+    # Теперь нам не нужен вектор, просто отдаем слово
+    word = random.choice(VALID_WORDS_LIST)
+    return jsonify({"word": word})
 
 @app.route('/guess', methods=['POST'])
 def guess():
     data = request.get_json()
     user_word = data.get('word', '').lower().strip()
-    secret_vec = data.get('secret_vector')
+    secret_word = data.get('secret_word') # Ожидаем строку, а не вектор!
     
-    if user_word not in VALID_WORDS: return jsonify({"error": "Բառը բառարանում չկա"}), 404
+    if user_word not in VALID_WORDS: 
+        return jsonify({"error": "Բառը բառարանում չկա"}), 404
     
-    user_vec, err = get_vector(user_word)
-    if user_vec is None: return jsonify({"error": f"AI-ի սխալ"}), 500
+    if not secret_word:
+        return jsonify({"error": "Secret word missing"}), 400
     
-    score = cosine_similarity(user_vec, secret_vec)
-    threshold = 0.25
-    final = max(0, min(100, round((max(0, score) - threshold) / (1 - threshold) * 100, 1))) if score > threshold else 0
-    return jsonify({"score": final})
+    # Получаем оценку напрямую от LLM
+    score = get_llm_score(secret_word, user_word)
+    
+    return jsonify({"score": score})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
