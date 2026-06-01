@@ -58,11 +58,18 @@ def cosine_similarity(v1, v2):
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
-    if not VALID_WORDS_LIST: return jsonify({"error": "Բառարանը դատարկ է"}), 500
-    word = random.choice(VALID_WORDS_LIST)
-    vec, err = get_vector(word)
-    if vec is None: return jsonify({"error": f"AI-ի սխալ"}), 500
-    return jsonify({"word": word, "vector": vec})
+    if not VALID_WORDS_LIST: 
+        return jsonify({"error": "Բառարանը դատարկ է"}), 500
+    attempts = 0
+    while attempts < 100:
+        word = random.choice(VALID_WORDS_LIST)
+        attempts += 1
+        if len(word) > 8:
+            continue
+        vec, err = get_vector(word)
+        if vec is not None:
+            return jsonify({"word": word, "vector": vec})
+    return jsonify({"error": "Չհաջողվեց գտնել հարմար գաղտնի բառ"}), 500
 
 @app.route('/guess', methods=['POST'])
 def guess():
