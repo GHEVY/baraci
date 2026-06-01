@@ -7,11 +7,9 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# 1. Настройка ключа Gemini (берется из переменных окружения)
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 def get_llm_score(target, guess):
-    # Промпт, который Gemini выполняет идеально благодаря своим размерам
     system_instruction = (
         "You are the core engine of 'Baratsi', an Armenian word association game. "
         "Analyze how naturally a human mind connects the 'Guess word' to the 'Secret word' based on everyday life and Armenian culture.\n"
@@ -29,19 +27,17 @@ def get_llm_score(target, guess):
     prompt = f"{system_instruction}\n\nSecret word: {target}\nGuess word: {guess}"
     
     try:
-        # Вызываем сверхбыструю модель Flash
-        model = genai.GenerativeModel('gemini-2.0-flash')
+
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         
         content = response.text.strip()
         print(f"DEBUG: Gemini Output:\n{content}")
         
-        # Жесткий и надежный парсинг числа
         match = re.search(r'Score:\s*(\d+)', content)
         if match:
             return max(0, min(100, int(match.group(1))))
             
-        # Запасной паттерн на случай форс-мажора
         matches = re.findall(r'\d+', content)
         if matches:
             return max(0, min(100, int(matches[-1])))
@@ -54,7 +50,6 @@ def get_llm_score(target, guess):
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
-    # Список слов для начала игры (можно расширить)
     words = ["սուրճ", "համակարգիչ", "գիրք", "արև", "լեռ", "ծով"]
     import random
     return jsonify({"word": random.choice(words)})
