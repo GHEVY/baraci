@@ -10,7 +10,7 @@ CORS(app)
 
 # 1. Исправленная инициализация клиента (api_key вместо token)
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
+MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
 client = InferenceClient(api_key=HF_TOKEN)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
