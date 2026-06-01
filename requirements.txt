@@ -4,4 +4,4 @@ numpy
 fasttext-wheel
 requests
 gunicorn
-huggingface_hub
+google-generativeai
