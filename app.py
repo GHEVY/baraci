@@ -25,46 +25,43 @@ try:
     print(f"Loaded {len(VALID_WORDS)} words.")
 except Exception as e:
     print(f"Error loading dictionary: {e}")
-
 def get_llm_score(target, guess):
-    # Жесткий системный промпт для ИИ-судьи
     system_instruction = (
-        "You are a strict linguistic referee for the Armenian word game 'Baratsi'. "
-        "Compare the secret word and the guess word based ONLY on their semantic closeness in Armenian culture and language. "
-        "Output EXACTLY one integer from 0 to 100, where 100 means they are exact synonyms, and 0 means completely unrelated. "
-        "Do not write any explanations, introduction, markdown, or extra text. Just output the digits."
+        "You are an expert linguistic judge for the Armenian word game 'Baratsi'. "
+        "Evaluate the semantic similarity between 'Secret word' and 'Guess word' in Armenian on a scale from 0 to 100.\n"
+        "Rules:\n"
+        "1. Output EXACTLY one integer from 0 to 100. No text, no markdown, no punctuation.\n"
+        "2. Use the entire scale naturally and dynamically. Do not automatically round your scores to the nearest 5 or 10. "
+        "Be precise and granular (e.g., feel free to return 14, 23, 47, 61, 82 if that accurately reflects the semantic distance)."
     )
     
     user_content = f"Secret word: {target}\nGuess word: {guess}"
     
     try:
-        # 2. Исправленный метод: используем chat.completions.create вместо conversational
         response = client.chat.completions.create(
             model=MODEL_ID,
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content}
             ],
-            max_tokens=5,      # Защита от лишнего текста + высокая скорость
-            temperature=0.01   # Минимальная температура для максимальной стабильности
+            max_tokens=4,
+            # ПОВЫШАЕМ ТЕМПЕРАТУРУ: дает естественный разброс чисел,
+            # убирает зацикливание на круглых цифрах, но держит логику.
+            temperature=0.3 
         )
         
-        # Получаем чистый текст ответа
         content = response.choices[0].message.content.strip()
         print(f"DEBUG: LLM raw response -> '{content}'")
         
-        # Наш парсер регуляркой
         matches = re.findall(r'\d+', content)
         if matches:
             score = int(matches[0])
             return max(0, min(100, score))
-        else:
-            print("DEBUG: No number found in response!")
-            return 0
             
     except Exception as e:
-        print(f"DEBUG: CRITICAL ERROR IN LLM CALL -> {e}")
-        return 0
+        print(f"WARNING: HF API Error ({e}). Using fallback score.")
+        
+    return 15 # Дефолтный фолбэк на случай падения сети
 
 @app.route('/get_initial_word', methods=['GET'])
 def get_initial_word():
